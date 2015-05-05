@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import           Control.Concurrent (threadDelay)
 import           Control.Monad      (foldM_, forever)
@@ -30,7 +30,6 @@ loopSubStep num (step, lowerBound) = do
   let remainder = mod num step
   waitIf remainder num
   let newVal = num - remainder
-  -- putStrLn ("newVal=" ++ show newVal)
   if newVal <= lowerBound then
     return newVal
   else
@@ -53,10 +52,10 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] ->
+    []  ->
       putStrLn "Need arguments"
 
-    l ->
+    l   ->
       mainLoop (times l)
 
     where
