@@ -1,14 +1,16 @@
+{-# LANGUAGE LambdaCase #-}
 module Main (main) where
 
 import           Control.Concurrent (threadDelay)
 import           Control.Monad      (foldM_, forever)
 import           System.Environment (getArgs)
+import           Data.Foldable
 
 
-loopSteps = [
-    (10, 10),
-    (5, 5),
-    (1, 0)
+loopSteps =
+  [ (10, 10)
+  , (5, 5)
+  , (1, 0)
   ]
 
 
@@ -16,48 +18,33 @@ seconds :: Int -> Int
 seconds = (* 1000000)
 
 
-mainLoop :: [Int] -> IO()
-mainLoop i = forever $ mapM (loopStep "\n\nNEXT\n") i
+mainLoop :: [Int] -> IO ()
+mainLoop = forever . mapM (loopStep "\n\nNEXT\n")
 
 
-loopStep :: String -> Int -> IO()
+loopStep :: String -> Int -> IO ()
 loopStep message i =
-  foldM_ loopSubStep i loopSteps >> putStrLn message
+  foldM_ (uncurry . loopSubStep) i loopSteps >> putStrLn message
 
 
-loopSubStep :: Int -> (Int, Int) -> IO Int
-loopSubStep num (step, lowerBound) = do
-  let remainder = mod num step
-  waitIf remainder num
-  let newVal = num - remainder
-  if newVal <= lowerBound then
-    return newVal
-  else
-    mapM_ (waitAndPrint step) (reverse [i * step | i <- [div lowerBound step + 1 ..(div newVal step)]]) >>
+loopSubStep :: Int -> Int -> Int -> IO Int
+loopSubStep num step lowerBound
+  | remainder /= 0 =
+    waitAndPrint remainder num >>
+    loopSubStep (num - remainder) step lowerBound
+  | num <= lowerBound = return lowerBound
+  | otherwise =
+    traverse_ (waitAndPrint step) steps >>
     return lowerBound
-
   where
-    waitIf i = if i /= 0 then waitAndPrint i else return.(const ())
+    remainder = mod num step
+    steps = reverse $ map (* step) [(lowerBound `div` step) + 1 .. (num `div` step)]
 
     waitAndPrint wait count = print count >> threadDelay (seconds wait)
 
 
-getMaybe :: Int -> [a] -> Maybe a
-getMaybe _ []     = Nothing
-getMaybe 0 (x:_)  = Just x
-getMaybe i (_:xs) = getMaybe (i - 1) xs
-
-
 main :: IO ()
-main = do
-  args <- getArgs
-  case args of
-    []  ->
-      putStrLn "Need arguments"
-
-    l   ->
-      mainLoop (times l)
-
-    where
-      times :: [String] -> [Int]
-      times = map read
+main =
+  getArgs >>= \case
+    []  -> putStrLn "Need arguments"
+    l   -> mainLoop $ map read l
